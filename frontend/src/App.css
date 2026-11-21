@@ -42,10 +42,6 @@ a {
   color: inherit;
 }
 
-img {
-  max-width: 100%;
-}
-
 /* =========================================
    MAIN APP LAYOUT
 ========================================= */
@@ -2268,8 +2264,59 @@ img {
     padding: 9px 12px;
   }
 
+  /*
+    Keep the right sidebar visible on mobile.
+    It moves below the main feed and uses one column.
+    This makes Artist to Watch accessible on phones.
+  */
+
   .right-sidebar {
-    display: none;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+    padding: 10px 4px 0;
+  }
+
+  .right-section {
+    display: block;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .right-sidebar .section-heading h2 {
+    font-size: 16px;
+  }
+
+  .artist-row {
+    gap: 13px;
+    margin: 17px 0;
+  }
+
+  .artist-row img {
+    width: 65px;
+    height: 65px;
+  }
+
+  .artist-row-info h3 {
+    font-size: 13px;
+  }
+
+  .artist-row-info p {
+    font-size: 12px;
+  }
+
+  .follow-button {
+    padding: 7px 11px;
+    font-size: 11px;
+  }
+
+  .newsletter {
+    margin-top: 18px;
+  }
+
+  .footer-links {
+    padding-bottom: 10px;
   }
 
   .video-card {
@@ -2507,6 +2554,16 @@ img {
 
   .suggested-thumbnail {
     width: 120px;
+  }
+
+  .artist-row img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .right-sidebar {
+    padding-left: 2px;
+    padding-right: 2px;
   }
 }
 
