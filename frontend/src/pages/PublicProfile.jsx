@@ -1,18 +1,41 @@
 
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { UserRound, ArrowLeft } from "lucide-react";
+import {
+  UserRound,
+  ArrowLeft,
+  UserPlus,
+  UserCheck,
+} from "lucide-react";
+
 import API from "../services/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+
 import "./PublicProfile.css";
 
 function PublicProfile() {
   const { username } = useParams();
+  const { user, isLoggedIn } = useAuth();
 
   const [profile, setProfile] = useState(null);
+  const [videos, setVideos] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [videosLoading, setVideosLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+
+  const isOwnProfile =
+    user?.username?.toLowerCase() === username?.toLowerCase();
+
   useEffect(() => {
+    let active = true;
+
     const fetchProfile = async () => {
       try {
         setLoading(true);
@@ -22,20 +45,105 @@ function PublicProfile() {
           `/auth/users/${encodeURIComponent(username)}`
         );
 
-        setProfile(response.data.user);
+        if (!active) return;
+
+        const profileData = response.data.user;
+
+        setProfile(profileData);
+        setFollowersCount(profileData.followersCount || 0);
+        setFollowingCount(profileData.followingCount || 0);
+
+        // Retrieve this creator's published videos.
+        setVideosLoading(true);
+
+        try {
+          const videosResponse = await API.get(
+            `/videos/artist/${encodeURIComponent(profileData.username)}`
+          );
+
+          if (active) {
+            setVideos(videosResponse.data.videos || []);
+          }
+        } catch (videoError) {
+          console.error("Creator videos error:", videoError);
+
+          if (active) {
+            setVideos([]);
+          }
+        } finally {
+          if (active) {
+            setVideosLoading(false);
+          }
+        }
+
+        // Retrieve follow status for logged-in users.
+        if (isLoggedIn && !isOwnProfile) {
+          try {
+            const followResponse = await API.get(
+              `/auth/users/${encodeURIComponent(profileData.username)}/follow-status`
+            );
+
+            if (active) {
+              setFollowing(followResponse.data.following);
+              setFollowersCount(
+                followResponse.data.followersCount || 0
+              );
+              setFollowingCount(
+                followResponse.data.followingCount || 0
+              );
+            }
+          } catch (followError) {
+            console.error("Follow status error:", followError);
+          }
+        }
       } catch (err) {
-        setError(
-          err.response?.status === 404
-            ? "This user could not be found."
-            : "Unable to load this profile. Please try again."
-        );
+        if (active) {
+          setError(
+            err.response?.status === 404
+              ? "This user could not be found."
+              : "Unable to load this profile. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchProfile();
-  }, [username]);
+
+    return () => {
+      active = false;
+    };
+  }, [username, isLoggedIn, isOwnProfile]);
+
+  const handleFollow = async () => {
+    if (!isLoggedIn || followLoading || !profile) return;
+
+    try {
+      setFollowLoading(true);
+
+      const response = await API.post(
+        `/auth/users/${encodeURIComponent(profile.username)}/follow`
+      );
+
+      setFollowing(response.data.following);
+
+      setFollowersCount(
+        response.data.followersCount || 0
+      );
+    } catch (error) {
+      console.error("Follow action error:", error);
+
+      alert(
+        error.response?.data?.message ||
+          "Unable to update follow status. Please try again."
+      );
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -49,6 +157,7 @@ function PublicProfile() {
     return (
       <div className="public-profile-message">
         <h2>{error || "Profile not found."}</h2>
+
         <Link to="/" className="public-profile-back">
           <ArrowLeft size={17} />
           Back to RYVO
@@ -101,26 +210,96 @@ function PublicProfile() {
               No bio added yet.
             </p>
           )}
+
+          <div className="public-profile-stats">
+            <div>
+              <strong>{followersCount}</strong>
+              <span>Followers</span>
+            </div>
+
+            <div>
+              <strong>{followingCount}</strong>
+              <span>Following</span>
+            </div>
+          </div>
+
+          {isLoggedIn && !isOwnProfile && (
+            <button
+              type="button"
+              className={`public-profile-follow-btn ${
+                following ? "following" : ""
+              }`}
+              onClick={handleFollow}
+              disabled={followLoading}
+            >
+              {following ? (
+                <UserCheck size={17} />
+              ) : (
+                <UserPlus size={17} />
+              )}
+
+              {followLoading
+                ? "Please wait..."
+                : following
+                ? "Following"
+                : "Follow"}
+            </button>
+          )}
         </div>
       </section>
 
       <section className="public-profile-videos">
         <div className="public-profile-section-heading">
           <h2>Videos</h2>
+          <span>{videos.length}</span>
         </div>
 
-        <div className="public-profile-empty">
-          <div className="public-profile-empty-icon">
-            <UserRound size={25} />
+        {videosLoading ? (
+          <div className="public-profile-empty">
+            Loading videos...
           </div>
+        ) : videos.length > 0 ? (
+          <div className="public-profile-video-grid">
+            {videos.map((video) => (
+              <Link
+                to={`/video/${video._id}`}
+                className="public-profile-video-card"
+                key={video._id}
+              >
+                <div className="public-profile-video-thumbnail">
+                  <img
+                    src={video.thumbnailUrl}
+                    alt={video.title}
+                    loading="lazy"
+                  />
+                </div>
 
-          <h3>No videos to show yet</h3>
+                <div className="public-profile-video-info">
+                  <h3>{video.title}</h3>
 
-          <p>
-            Published videos associated with this creator
-            will appear here.
-          </p>
-        </div>
+                  <p>{video.artist}</p>
+
+                  {video.genre && (
+                    <span>{video.genre}</span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="public-profile-empty">
+            <div className="public-profile-empty-icon">
+              <UserRound size={25} />
+            </div>
+
+            <h3>No videos to show yet</h3>
+
+            <p>
+              Published videos associated with this creator
+              will appear here.
+            </p>
+          </div>
+        )}
       </section>
     </main>
   );

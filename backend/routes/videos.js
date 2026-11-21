@@ -14,6 +14,9 @@ const router = express.Router();
 const isValidId = (id) =>
   mongoose.Types.ObjectId.isValid(id);
 
+const normalizeUsername = (username) =>
+  String(username || "").trim().replace(/^@/, "").toLowerCase();
+
 const getPublishedVideo = async (videoId) => {
   if (!isValidId(videoId)) {
     return null;
@@ -48,6 +51,42 @@ router.get("/", async (req, res) => {
 
     res.status(500).json({
       message: "Could not retrieve published videos.",
+    });
+  }
+});
+
+// =====================================
+// GET PUBLISHED VIDEOS BY CREATOR
+// =====================================
+
+router.get("/artist/:username", async (req, res) => {
+  try {
+    const username = normalizeUsername(req.params.username);
+
+    if (!username) {
+      return res.status(400).json({
+        message: "A creator username is required.",
+      });
+    }
+
+    const videos = await Video.find({
+      artistUsername: username,
+      status: "published",
+    })
+      .select(
+        "title artist artistUsername genre description videoUrl thumbnailUrl featured publishedAt createdAt"
+      )
+      .sort({
+        publishedAt: -1,
+        createdAt: -1,
+      });
+
+    res.json({ videos });
+  } catch (error) {
+    console.error("Creator video retrieval error:", error);
+
+    res.status(500).json({
+      message: "Could not retrieve creator videos.",
     });
   }
 });
@@ -415,7 +454,7 @@ router.post(
       const video = await Video.create({
         title,
         artist,
-        artistUsername,
+        artistUsername: normalizeUsername(artistUsername),
         genre,
         description,
         videoUrl,
@@ -468,7 +507,10 @@ router.patch(
 
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
+          updates[field] =
+            field === "artistUsername"
+              ? normalizeUsername(req.body[field])
+              : req.body[field];
         }
       }
 
