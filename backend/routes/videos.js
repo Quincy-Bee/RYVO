@@ -3,7 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const Video = require("../models/Video");
-const Comment = require("../models/Comment");
+const Comment = require("../models/Comments");
 const VideoInteraction = require("../models/VideoInteraction");
 
 const authenticateUser = require("../middleware/authenticateUser");
