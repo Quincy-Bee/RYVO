@@ -52,19 +52,20 @@ const trendingArtists = [
     username: "@Rocky_Lotto",
     image:
       "https://i1.sndcdn.com/avatars-fVDhOXW9zk1VZ9S5-JPd3aw-t240x240.jpg",
-  },
-  {
-    name: "Jaylen Carter",
-    username: "@jaylencarter",
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120",
-  },
-  {
-    name: "Kairo",
-    username: "@kairoofficial",
-    image:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120",
-  },
+  }
+  // ,
+  // {
+  //   name: "Jaylen Carter",
+  //   username: "@jaylencarter",
+  //   image:
+  //     "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120",
+  // },
+  // {
+  //   name: "Kairo",
+  //   username: "@kairoofficial",
+  //   image:
+  //     "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120",
+  // },
 ];
 
 // =====================================
