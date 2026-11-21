@@ -37,6 +37,7 @@ import Register from "./pages/Register.jsx";
 import Profile from "./pages/Profile.jsx";
 import PublicProfile from "./pages/PublicProfile.jsx";
 import AdminVideos from "./pages/AdminVideos.jsx";
+import VideoPage from "./pages/VideoPage.jsx";
 
 import "./App.css";
 import "./ProfileDropdown.css";
@@ -47,10 +48,10 @@ import "./ProfileDropdown.css";
 
 const trendingArtists = [
   {
-    name: "Amara Rose",
-    username: "@amararose",
+    name: "Rocky Lotto",
+    username: "@Rocky_Lotto",
     image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120",
+      "https://i1.sndcdn.com/avatars-fVDhOXW9zk1VZ9S5-JPd3aw-t240x240.jpg",
   },
   {
     name: "Jaylen Carter",
@@ -80,87 +81,6 @@ const categories = [
   "Pop",
   "Electronic",
 ];
-
-// =====================================
-// VIDEO URL HANDLER
-// =====================================
-
-function getVideoPlayer(videoUrl) {
-  if (!videoUrl) {
-    return null;
-  }
-
-  try {
-    const url = new URL(videoUrl);
-    const hostname = url.hostname.toLowerCase();
-
-    // YouTube
-    if (
-      hostname.includes("youtube.com") ||
-      hostname.includes("youtu.be")
-    ) {
-      let videoId = "";
-
-      if (hostname.includes("youtu.be")) {
-        videoId = url.pathname.split("/").filter(Boolean)[0];
-      } else if (url.pathname === "/watch") {
-        videoId = url.searchParams.get("v");
-      } else {
-        const pathParts = url.pathname.split("/").filter(Boolean);
-
-        if (
-          ["embed", "shorts", "live"].includes(pathParts[0])
-        ) {
-          videoId = pathParts[1];
-        }
-      }
-
-      if (videoId) {
-        return {
-          type: "iframe",
-          src: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`,
-        };
-      }
-    }
-
-    // Vimeo
-    if (
-      hostname.includes("vimeo.com")
-    ) {
-      const pathParts = url.pathname.split("/").filter(Boolean);
-
-      const videoId =
-        pathParts.find((part) => /^\d+$/.test(part));
-
-      if (videoId) {
-        return {
-          type: "iframe",
-          src: `https://player.vimeo.com/video/${videoId}?autoplay=1`,
-        };
-      }
-    }
-
-    // Direct video files
-    if (
-      /\.(mp4|webm|ogg|mov|m4v)$/i.test(url.pathname)
-    ) {
-      return {
-        type: "video",
-        src: videoUrl,
-      };
-    }
-
-    // Other supported video embed URLs
-    return {
-      type: "iframe",
-      src: videoUrl,
-    };
-  } catch (error) {
-    console.error("Invalid video URL:", error);
-
-    return null;
-  }
-}
 
 // =====================================
 // SIDEBAR
@@ -474,11 +394,11 @@ function VideoCard({ post }) {
   const { isLoggedIn } = useAuth();
 
   const [saved, setSaved] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const artistUsername =
     post.artistUsername ||
-    post.artist.toLowerCase().replace(/[^a-z0-9]/g, "");
+    post.artist?.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const artistProfile = `/user/${artistUsername}`;
 
@@ -495,113 +415,87 @@ function VideoCard({ post }) {
       )
     : "Recently published";
 
-  const videoPlayer = getVideoPlayer(post.videoUrl);
+  const videoPage = `/video/${post._id}`;
 
-  const closePlayer = () => {
-    setIsPlaying(false);
+  const handleSave = async () => {
+    if (!isLoggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (saving) return;
+
+    try {
+      setSaving(true);
+
+      const response = await API.post(
+        `/videos/${post._id}/save`
+      );
+
+      setSaved(
+        typeof response.data.saved === "boolean"
+          ? response.data.saved
+          : !saved
+      );
+    } catch (error) {
+      console.error("Could not save video:", error);
+
+      alert(
+        error.response?.data?.message ||
+          "Could not save this video. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}${videoPage}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: post.title,
+          url: shareUrl,
+        });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Video link copied!");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Could not share video:", error);
+      }
+    }
   };
 
   return (
     <article className="video-card">
-      <div
-        className="video-thumbnail"
-        style={
-          isPlaying
-            ? {
-                position: "relative",
-                overflow: "hidden",
-                background: "#000",
-              }
-            : undefined
-        }
+      <Link
+        to={videoPage}
+        className="video-thumbnail video-thumbnail-link"
+        aria-label={`Watch ${post.title}`}
       >
-        {isPlaying && videoPlayer ? (
-          <>
-            {videoPlayer.type === "iframe" ? (
-              <iframe
-                key={videoPlayer.src}
-                src={videoPlayer.src}
-                title={`${post.title} by ${post.artist}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  minHeight: "250px",
-                  border: "none",
-                  background: "#000",
-                }}
-              />
-            ) : (
-              <video
-                key={videoPlayer.src}
-                src={videoPlayer.src}
-                controls
-                autoPlay
-                playsInline
-                onEnded={closePlayer}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  minHeight: "250px",
-                  objectFit: "contain",
-                  background: "#000",
-                }}
-              >
-                Your browser does not support video playback.
-              </video>
-            )}
-
-            <button
-              className="thumbnail-more"
-              onClick={closePlayer}
-              aria-label="Close video player"
-              style={{
-                zIndex: 5,
-                background: "rgba(0, 0, 0, 0.75)",
-              }}
-            >
-              <X size={21} />
-            </button>
-          </>
+        {post.thumbnailUrl ? (
+          <img
+            src={post.thumbnailUrl}
+            alt={`${post.artist} video thumbnail`}
+            loading="lazy"
+          />
         ) : (
-          <>
-            <img
-              src={post.thumbnailUrl}
-              alt={`${post.artist} video thumbnail`}
-              loading="lazy"
-            />
-
-            <span className="video-category">
-              {post.genre}
-            </span>
-
-            <button
-              className="play-button"
-              aria-label={`Play ${post.title}`}
-              onClick={() => {
-                if (!videoPlayer) {
-                  alert("This video link is invalid or unsupported.");
-                  return;
-                }
-
-                setIsPlaying(true);
-              }}
-            >
-              <Play size={23} fill="currentColor" />
-            </button>
-
-            <button
-              className="thumbnail-more"
-              aria-label="More options"
-            >
-              <MoreHorizontal size={21} />
-            </button>
-          </>
+          <div className="video-thumbnail-fallback">
+            <Disc3 size={48} />
+          </div>
         )}
-      </div>
+
+        <span className="video-category">
+          {post.genre}
+        </span>
+
+        <span className="play-button">
+          <Play size={23} fill="currentColor" />
+        </span>
+      </Link>
 
       <div className="video-details">
         <Link
@@ -615,7 +509,12 @@ function VideoCard({ post }) {
         </Link>
 
         <div className="video-info">
-          <h3>{post.title}</h3>
+          <Link
+            to={videoPage}
+            className="video-title-link"
+          >
+            <h3>{post.title}</h3>
+          </Link>
 
           <div className="artist-name">
             <Link
@@ -647,24 +546,12 @@ function VideoCard({ post }) {
       </div>
 
       <div className="video-actions">
-        <button>
+        <Link to={videoPage} className="video-action-link">
           <MessageCircle size={18} />
           Comments
-        </button>
+        </Link>
 
-        <button
-          onClick={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: post.title,
-                url: post.videoUrl,
-              });
-            } else if (navigator.clipboard) {
-              navigator.clipboard.writeText(post.videoUrl);
-              alert("Video link copied!");
-            }
-          }}
-        >
+        <button onClick={handleShare}>
           <Share2 size={18} />
           Share
         </button>
@@ -673,14 +560,8 @@ function VideoCard({ post }) {
           className={`save-action ${
             saved ? "action-active" : ""
           }`}
-          onClick={() => {
-            if (!isLoggedIn) {
-              window.location.href = "/login";
-              return;
-            }
-
-            setSaved(!saved);
-          }}
+          onClick={handleSave}
+          disabled={saving}
           aria-label={
             saved ? "Remove saved video" : "Save video"
           }
@@ -1005,6 +886,16 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+
+      <Route
+        path="/video/:id"
+        element={
+          <VideoPage
+            Sidebar={Sidebar}
+            Header={Header}
+          />
+        }
+      />
 
       <Route path="/login" element={<Login />} />
 
